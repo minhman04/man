@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Huỳnh Minh Mẩn</title>
+  <style>
+    
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+    
+    #cosmic {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      z-index: -2;
+    }
+    
+    .box {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    
+    canvas#pinkboard {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 500px;
+      height: 500px;
+    }
+    
+    .center-text {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-family: 'Arial', sans-serif;
+      font-size: 48px;
+      color: #fd0495;
+      text-shadow: 0 0 10px #fd0495, 0 0 20px #cc0070;
+      animation: rockOut 2s ease forwards infinite; 
+    }
+   
+    @keyframes rockOut {
+      0% {
+        transform: translate(-50%, -50%) scale(1) rotate(0deg);
+      }
+      25% {
+        transform: translate(-50%, -50%) scale(1.2) rotate(10deg);
+      }
+      50% {
+        transform: translate(-50%, -50%) scale(1) rotate(-10deg);
+      }
+      75% {
+        transform: translate(-50%, -50%) scale(1.1) rotate(5deg);
+      }
+      100% {
+        transform: translate(-50%, -50%) scale(1) rotate(0deg);
+      }
+    }
+  </style>
+</head>
+<body>
+  
+  <canvas id="cosmic"></canvas>
+
+  <div class="box">
+    <canvas id="pinkboard"></canvas>
+    <div class="center-text">Mỹ Ngọc</div>
+  </div>
+
+  <script>
+    
+    (function(){
+      var canvasCosmic = document.getElementById('cosmic');
+      var ctxCosmic = canvasCosmic.getContext('2d');
+      var stars = [];
+      var starCount = 300; 
+      var width, height;
+      function resizeCosmic(){
+          width = canvasCosmic.width = window.innerWidth;
+          height = canvasCosmic.height = window.innerHeight;
+      }
+      window.addEventListener('resize', resizeCosmic);
+      resizeCosmic();
+      
+      for(var i = 0; i < starCount; i++){
+          stars.push({
+              x: Math.random() * width,
+              y: Math.random() * height,
+              r: Math.random() * 1.5,
+              vx: (Math.random() - 0.5) * 0.2,
+              vy: (Math.random() - 0.5) * 0.2
+          });
+      }
+      function animateCosmic(){
+          
+          ctxCosmic.fillStyle = "rgba(0,0,0,0.1)";
+          ctxCosmic.fillRect(0, 0, width, height);
+          ctxCosmic.fillStyle = "white";
+          for(var i = 0; i < stars.length; i++){
+              var star = stars[i];
+              star.x += star.vx;
+              star.y += star.vy;
+              if(star.x < 0 || star.x > width) star.vx *= -1;
+              if(star.y < 0 || star.y > height) star.vy *= -1;
+              ctxCosmic.beginPath();
+              ctxCosmic.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+              ctxCosmic.fill();
+          }
+          requestAnimationFrame(animateCosmic);
+      }
+      animateCosmic();
+    })();
+
+    var settings = {
+      particles: {
+        length: 2000,   
+        duration: 2,    
+        velocity: 100,   
+        effect: -1.3,   
+        size: 13,        
+      },
+    };
+
+    (function(){
+      var canvas = document.getElementById('pinkboard');
+      var ctx = canvas.getContext('2d');
+      var time, particleRate = settings.particles.length / settings.particles.duration;
+
+      // --- Định nghĩa lớp Point ---
+      function Point(x, y) {
+        this.x = (typeof x !== 'undefined') ? x : 0;
+        this.y = (typeof y !== 'undefined') ? y : 0;
+      }
+      Point.prototype.clone = function() {
+        return new Point(this.x, this.y);
+      };
+      Point.prototype.length = function(len) {
+        if (typeof len === 'undefined')
+          return Math.sqrt(this.x * this.x + this.y * this.y);
+        this.normalize();
+        this.x *= len;
+        this.y *= len;
+        return this;
+      };
+      Point.prototype.normalize = function() {
+        var len = this.length();
+        this.x /= len;
+        this.y /= len;
+        return this;
+      };
+
+      
+      function Particle() {
+        this.position = new Point();
+        this.velocity = new Point();
+        this.acceleration = new Point();
+        this.age = 0;
+      }
+      Particle.prototype.initialize = function(x, y, dx, dy) {
+        this.position.x = x;
+        this.position.y = y;
+        this.velocity.x = dx;
+        this.velocity.y = dy;
+        this.acceleration.x = dx * settings.particles.effect;
+        this.acceleration.y = dy * settings.particles.effect;
+        this.age = 0;
+      };
+      Particle.prototype.update = function(deltaTime) {
+        this.position.x += this.velocity.x * deltaTime;
+        this.position.y += this.velocity.y * deltaTime;
+        this.velocity.x += this.acceleration.x * deltaTime;
+        this.velocity.y += this.acceleration.y * deltaTime;
+        this.age += deltaTime;
+      };
+      Particle.prototype.draw = function(context, image) {
+        function ease(t) { return (--t) * t * t + 1; }
+        var size = image.width * ease(this.age / settings.particles.duration);
+        context.globalAlpha = 1 - this.age / settings.particles.duration;
+        context.drawImage(image, this.position.x - size / 2, this.position.y - size / 2, size, size);
+      };
+
+      
+      var ParticlePool = function(length) {
+        this.particles = new Array(length);
+        this.firstActive = 0;
+        this.firstFree = 0;
+        for (var i = 0; i < length; i++)
+          this.particles[i] = new Particle();
+      };
+      ParticlePool.prototype.add = function(x, y, dx, dy) {
+        this.particles[this.firstFree].initialize(x, y, dx, dy);
+        this.firstFree++;
+        if (this.firstFree === this.particles.length)
+          this.firstFree = 0;
+        if (this.firstActive === this.firstFree)
+          this.firstActive++;
+        if (this.firstActive === this.particles.length)
+          this.firstActive = 0;
+      };
+      ParticlePool.prototype.update = function(deltaTime) {
+        if (this.firstActive < this.firstFree) {
+          for (var i = this.firstActive; i < this.firstFree; i++)
+            this.particles[i].update(deltaTime);
+        } else {
+          for (var i = this.firstActive; i < this.particles.length; i++)
+            this.particles[i].update(deltaTime);
+          for (var i = 0; i < this.firstFree; i++)
+            this.particles[i].update(deltaTime);
+        }
+        while (this.particles[this.firstActive].age >= settings.particles.duration &&
+               this.firstActive !== this.firstFree) {
+          this.firstActive++;
+          if (this.firstActive === this.particles.length)
+            this.firstActive = 0;
+        }
+      };
+      ParticlePool.prototype.draw = function(context, image) {
+        if (this.firstActive < this.firstFree) {
+          for (var i = this.firstActive; i < this.firstFree; i++)
+            this.particles[i].draw(context, image);
+        } else {
+          for (var i = this.firstActive; i < this.particles.length; i++)
+            this.particles[i].draw(context, image);
+          for (var i = 0; i < this.firstFree; i++)
+            this.particles[i].draw(context, image);
+        }
+      };
+
+      var pool = new ParticlePool(settings.particles.length);
+
+      function pointOnHeart(t) {
+        return new Point(
+          160 * Math.pow(Math.sin(t), 3),
+          130 * Math.cos(t) - 50 * Math.cos(2 * t) - 20 * Math.cos(3 * t) - 10 * Math.cos(4 * t) + 25
+        );
+      }
+      var particleImage = (function(){
+        var canvasImg = document.createElement('canvas'),
+            ctxImg = canvasImg.getContext('2d');
+        canvasImg.width = settings.particles.size;
+        canvasImg.height = settings.particles.size;
+        function to(t) {
+          var p = pointOnHeart(t);
+          p.x = settings.particles.size / 2 + p.x * settings.particles.size / 350;
+          p.y = settings.particles.size / 2 - p.y * settings.particles.size / 350;
+          return p;
+        }
+        ctxImg.beginPath();
+        var t = -Math.PI;
+        var p = to(t);
+        ctxImg.moveTo(p.x, p.y);
+        while (t < Math.PI) {
+          t += 0.01;
+          p = to(t);
+          ctxImg.lineTo(p.x, p.y);
+        }
+        ctxImg.closePath();
+        ctxImg.fillStyle = '#f705e2ad';
+        ctxImg.fill();
+        var img = new Image();
+        img.src = canvasImg.toDataURL();
+        return img;
+      })();
+
+      function render() {
+        requestAnimationFrame(render);
+        var newTime = new Date().getTime() / 1000,
+            deltaTime = newTime - (time || newTime);
+        time = newTime;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        var amount = particleRate * deltaTime;
+        for (var i = 0; i < amount; i++) {
+          var pos = pointOnHeart(Math.PI - 2 * Math.PI * Math.random());
+          var dir = pos.clone().length(settings.particles.velocity);
+          pool.add(canvas.width / 2 + pos.x, canvas.height / 2 - pos.y, dir.x, -dir.y);
+        }
+        pool.update(deltaTime);
+        pool.draw(ctx, particleImage);
+      }
+      function onResize() {
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+      }
+      window.addEventListener('resize', onResize);
+      setTimeout(function() {
+        onResize();
+        render();
+      }, 10);
+    })();
+  </script>
+   body {
+    margin: 0;
+    overflow: hidden;
+    background: radial-gradient(circle, #000, #020202);
+  }
+  canvas {
+    display: block;
+  }
+</style>
+</head>
+<body>
+<canvas id="fireworksCanvas"></canvas>
+
+<script>
+  const canvas = document.getElementById('fireworksCanvas');
+  const ctx = canvas.getContext('2d');
+
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  const fireworks = [];
+
+  class Firework {
+    constructor(x, y, color) {
+      this.x = x;
+      this.y = y;
+      this.color = color;
+      this.particles = [];
+      this.initParticles();
+    }
+
+    initParticles() {
+      const particleCount = 150;
+      for (let i = 0; i < particleCount; i++) {
+        const angle = (Math.PI * 2 * i) / particleCount;
+        const speed = Math.random() * 5 + 3;
+        this.particles.push({
+          x: this.x,
+          y: this.y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          alpha: 1,
+          size: Math.random() * 2 + 1,
+          color: `rgba(${this.color}, ${Math.random() * 0.5 + 0.5})`
+        });
+      }
+    }
+
+    draw() {
+      this.particles.forEach((particle) => {
+        ctx.fillStyle = particle.color;
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    update() {
+      this.particles.forEach((particle) => {
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        particle.vx *= 0.96; 
+        particle.vy *= 0.96;
+        particle.vy += 0.2; 
+        particle.alpha -= 0.015;
+        particle.size *= 0.98;
+      });
+
+      this.particles = this.particles.filter((particle) => particle.alpha > 0);
+    }
+
+    isComplete() {
+      return this.particles.length === 0;
+    }
+  }
+
+  function createFirework() {
+    const x = Math.random() * canvas.width;
+    const y = canvas.height;
+    const color = `${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}, ${Math.floor(Math.random() * 255)}`;
+
+    fireworks.push(new Firework(x, y - Math.random() * 1500 - 200, color));
+  }
+
+  function animate() {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (Math.random() < 0.07) {
+      createFirework();
+    }
+
+    fireworks.forEach((firework, index) => {
+      firework.draw();
+      firework.update();
+
+      if (firework.isComplete()) {
+        fireworks.splice(index, 1);
+      }
+    });
+
+    requestAnimationFrame(animate);
+  }
+
+  window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  });
+
+  animate();
+</script>
+<a href="https://www.facebook.com/my.ngoc.870808" target="_blank" style="position: fixed; bottom: 10px; left: 10px; color: rgb(46, 0, 252); text-decoration: none; font-size: 50px;">Facebook</a>
+</body>
+</body>
+</html>
